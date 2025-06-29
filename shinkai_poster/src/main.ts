@@ -9,7 +9,7 @@ const posterHeight = 1200;
 function getScale() {
   const scaleX = canvas.width / posterWidth;
   const scaleY = canvas.height / posterHeight;
-  return Math.min(scaleX, scaleY); // pour contenir l'affiche dans l'écran
+  return Math.min(scaleX, scaleY);
 }
 
 function getOffset(scale: number) {
@@ -28,6 +28,89 @@ bg.src = '/assets/bg-fuji.jpg';
 
 const sakuraImage = new Image();
 sakuraImage.src = '/assets/sakura.png';
+
+const branchImage1 = new Image();
+branchImage1.src = '/assets/branche.png';
+const branchImage2 = new Image();
+branchImage2.src = '/assets/branche2.png';
+const branchImage3 = new Image();
+branchImage3.src = '/assets/branche3.PNG';
+
+const branchSound = new Audio('/assets/branch-sound.mp3');
+
+let prevMouseX = 0;
+
+class Branch {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number = 0;
+  targetRotation: number = 0;
+  image: HTMLImageElement;
+  soundPlayed = false;
+
+  constructor(x: number, y: number, image: HTMLImageElement) {
+    this.x = x;
+    this.y = y;
+    this.image = image;
+    this.width = 300;
+    this.height = 300;
+  }
+
+  update() {
+    this.rotation += (this.targetRotation - this.rotation) * 0.1;
+  }
+
+  draw(ctx: CanvasRenderingContext2D, offsetX: number, offsetY: number, scale: number) {
+    ctx.save();
+    ctx.translate(offsetX + this.x * scale, offsetY + this.y * scale);
+    ctx.rotate(this.rotation);
+    ctx.drawImage(
+      this.image,
+      -this.width / 2 * scale,
+      -this.height / 2 * scale,
+      this.width * scale,
+      this.height * scale
+    );
+    ctx.restore();
+  }
+}
+
+const branches: Branch[] = [
+  new Branch(200, 100, branchImage1),
+  new Branch(400, 100, branchImage2),
+  new Branch(600, 100, branchImage3),
+];
+
+window.addEventListener('mousemove', (e) => {
+  const direction = e.clientX > prevMouseX ? 1 : -1;
+  prevMouseX = e.clientX;
+
+  const scale = getScale();
+  const { x: offsetX, y: offsetY } = getOffset(scale);
+  const mx = (e.clientX - offsetX) / scale;
+  const my = (e.clientY - offsetY) / scale;
+
+  for (const b of branches) {
+    if (
+      mx >= b.x - b.width / 2 &&
+      mx <= b.x + b.width / 2 &&
+      my >= b.y - b.height / 2 &&
+      my <= b.y + b.height / 2
+    ) {
+      b.targetRotation = 0.3 * direction;
+      if (!b.soundPlayed) {
+        branchSound.currentTime = 0;
+        branchSound.play();
+        b.soundPlayed = true;
+      }
+    } else {
+      b.targetRotation = 0;
+      b.soundPlayed = false;
+    }
+  }
+});
 
 class Petal {
   x: number;
@@ -111,80 +194,6 @@ sakuraImage.onload = () => {
   }
 };
 
-const branchImages = ['/assets/branche.png', '/assets/branche2.png', '/assets/branche3.png'];
-const branches: { img: HTMLImageElement; x: number; y: number; width: number; height: number; angle: number; targetAngle: number; hovering: boolean; }[] = [];
-
-const branchSound = new Audio('/assets/branche-touch.mp3');
-
-branchImages.forEach((src) => {
-  const img = new Image();
-  img.src = src;
-  img.onload = () => {
-    const width = 100;
-    const height = 100;
-    branches.push({
-      img,
-      x: 0,
-      y: 0,
-      width,
-      height,
-      angle: 0,
-      targetAngle: 0,
-      hovering: false,
-    });
-  };
-});
-
-canvas.addEventListener('mousemove', (e) => {
-  const scale = getScale();
-  const { x: offsetX, y: offsetY } = getOffset(scale);
-  const mouseX = (e.clientX - offsetX) / scale;
-  const mouseY = (e.clientY - offsetY) / scale;
-
-  for (const branch of branches) {
-    const dx = mouseX - (branch.x + branch.width / 2);
-    const dy = mouseY - (branch.y + branch.height / 2);
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    const isHovering = dist < branch.width / 1.5;
-
-    if (isHovering && !branch.hovering) {
-      branchSound.currentTime = 0;
-      branchSound.play();
-    }
-
-    branch.hovering = isHovering;
-
-    if (isHovering) {
-      branch.targetAngle = dx * 0.005;
-    } else {
-      branch.targetAngle = 0;
-    }
-  }
-});
-
-function drawBranches(ctx: CanvasRenderingContext2D, offsetX: number, offsetY: number, scale: number) {
-  const spacing = 20;
-  const totalWidth = branches.reduce((sum, b) => sum + b.width, 0) + spacing * (branches.length - 1);
-  const startX = (posterWidth - totalWidth) / 2;
-
-  for (let i = 0; i < branches.length; i++) {
-    const branch = branches[i];
-    if (!branch.img.complete) continue;
-
-    branch.x = startX + i * (branch.width + spacing);
-    branch.y = 0;
-
-    branch.angle += (branch.targetAngle - branch.angle) * 0.1;
-
-    ctx.save();
-    ctx.translate(offsetX + branch.x * scale + (branch.width / 2) * scale, offsetY + branch.y * scale + (branch.height / 2) * scale);
-    ctx.rotate(branch.angle);
-    ctx.drawImage(branch.img, -branch.width / 2 * scale, -branch.height / 2 * scale, branch.width * scale, branch.height * scale);
-    ctx.restore();
-  }
-}
-
 let frameCount = 0;
 
 function animate() {
@@ -192,23 +201,21 @@ function animate() {
   const scale = getScale();
   const { x: offsetX, y: offsetY } = getOffset(scale);
 
-  // Dessiner l'affiche avec scale
   ctx.drawImage(bg, offsetX, offsetY, posterWidth * scale, posterHeight * scale);
 
-  // Dessiner les branches en haut
-  drawBranches(ctx, offsetX, offsetY, scale);
-
-  // Soleil fixé à l’affiche
   drawSunRays(ctx, offsetX, offsetY, frameCount, scale);
 
-  // Teinte
   ctx.fillStyle = 'rgba(255, 180, 100, 0.4)';
   ctx.fillRect(offsetX, offsetY, posterWidth * scale, posterHeight * scale);
 
-  // Pétales tombant sur l'affiche
   for (const petal of petals) {
     petal.update();
     petal.draw(ctx, offsetX, offsetY, scale);
+  }
+
+  for (const b of branches) {
+    b.update();
+    b.draw(ctx, offsetX, offsetY, scale);
   }
 
   frameCount++;
