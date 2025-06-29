@@ -36,6 +36,8 @@ branchImage2.src = '/assets/branche2.png';
 const branchImage3 = new Image();
 branchImage3.src = '/assets/branche3.PNG';
 
+
+
 const branchSound = new Audio('/assets/branch-sound.mp3');
 
 let prevMouseX = 0;
@@ -64,6 +66,7 @@ class Branch {
 
   draw(ctx: CanvasRenderingContext2D, offsetX: number, offsetY: number, scale: number) {
     ctx.save();
+    ctx.filter = 'sepia(60%) brightness(80%) saturate(150%)';
     ctx.translate(offsetX + this.x * scale, offsetY + this.y * scale);
     ctx.rotate(this.rotation);
     ctx.drawImage(
@@ -74,6 +77,7 @@ class Branch {
       this.height * scale
     );
     ctx.restore();
+    ctx.filter = 'none';
   }
 }
 
@@ -123,6 +127,12 @@ class Petal {
 
   constructor(image: HTMLImageElement) {
     this.image = image;
+    this.x = 0;
+    this.y = 0;
+    this.speed = 0;
+    this.drift = 0;
+    this.angle = 0;
+    this.size = 0;
     this.reset();
   }
 
@@ -148,6 +158,7 @@ class Petal {
     ctx.rotate(this.angle);
     ctx.drawImage(this.image, -this.size / 2 * scale, -this.size / 2 * scale, this.size * scale, this.size * scale);
     ctx.restore();
+    ctx.filter = 'sepia(60%) brightness(100%) saturate(150%)';
   }
 }
 
