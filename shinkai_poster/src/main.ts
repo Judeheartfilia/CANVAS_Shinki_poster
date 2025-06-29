@@ -111,6 +111,80 @@ sakuraImage.onload = () => {
   }
 };
 
+const branchImages = ['/assets/branche.png', '/assets/branche2.png', '/assets/branche3.png'];
+const branches: { img: HTMLImageElement; x: number; y: number; width: number; height: number; angle: number; targetAngle: number; hovering: boolean; }[] = [];
+
+const branchSound = new Audio('/assets/branche-touch.mp3');
+
+branchImages.forEach((src) => {
+  const img = new Image();
+  img.src = src;
+  img.onload = () => {
+    const width = 100;
+    const height = 100;
+    branches.push({
+      img,
+      x: 0,
+      y: 0,
+      width,
+      height,
+      angle: 0,
+      targetAngle: 0,
+      hovering: false,
+    });
+  };
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  const scale = getScale();
+  const { x: offsetX, y: offsetY } = getOffset(scale);
+  const mouseX = (e.clientX - offsetX) / scale;
+  const mouseY = (e.clientY - offsetY) / scale;
+
+  for (const branch of branches) {
+    const dx = mouseX - (branch.x + branch.width / 2);
+    const dy = mouseY - (branch.y + branch.height / 2);
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    const isHovering = dist < branch.width / 1.5;
+
+    if (isHovering && !branch.hovering) {
+      branchSound.currentTime = 0;
+      branchSound.play();
+    }
+
+    branch.hovering = isHovering;
+
+    if (isHovering) {
+      branch.targetAngle = dx * 0.005;
+    } else {
+      branch.targetAngle = 0;
+    }
+  }
+});
+
+function drawBranches(ctx: CanvasRenderingContext2D, offsetX: number, offsetY: number, scale: number) {
+  const spacing = 20;
+  const totalWidth = branches.reduce((sum, b) => sum + b.width, 0) + spacing * (branches.length - 1);
+  const startX = (posterWidth - totalWidth) / 2;
+
+  for (let i = 0; i < branches.length; i++) {
+    const branch = branches[i];
+    if (!branch.img.complete) continue;
+
+    branch.x = startX + i * (branch.width + spacing);
+    branch.y = 0;
+
+    branch.angle += (branch.targetAngle - branch.angle) * 0.1;
+
+    ctx.save();
+    ctx.translate(offsetX + branch.x * scale + (branch.width / 2) * scale, offsetY + branch.y * scale + (branch.height / 2) * scale);
+    ctx.rotate(branch.angle);
+    ctx.drawImage(branch.img, -branch.width / 2 * scale, -branch.height / 2 * scale, branch.width * scale, branch.height * scale);
+    ctx.restore();
+  }
+}
+
 let frameCount = 0;
 
 function animate() {
@@ -121,11 +195,14 @@ function animate() {
   // Dessiner l'affiche avec scale
   ctx.drawImage(bg, offsetX, offsetY, posterWidth * scale, posterHeight * scale);
 
+  // Dessiner les branches en haut
+  drawBranches(ctx, offsetX, offsetY, scale);
+
   // Soleil fixé à l’affiche
   drawSunRays(ctx, offsetX, offsetY, frameCount, scale);
 
   // Teinte
-  ctx.fillStyle = 'rgba(255, 180, 100, 0.26)';
+  ctx.fillStyle = 'rgba(255, 180, 100, 0.4)';
   ctx.fillRect(offsetX, offsetY, posterWidth * scale, posterHeight * scale);
 
   // Pétales tombant sur l'affiche
